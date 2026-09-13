@@ -47,7 +47,11 @@ class WebsiteGroup(app_commands.Group):
             )
             return
 
-        online = sum(1 for result in results if result.available)
+        online = sum(
+            1 for result in results
+            if result.available
+        )
+
         total = len(results)
 
         lines = [
@@ -56,11 +60,21 @@ class WebsiteGroup(app_commands.Group):
         ]
 
         for result in results[:10]:
-            state = "🟢 ONLINE" if result.available else "🔴 DOWN"
-            lines.append(f"{state} — `{result.path}`")
+            state = (
+                "🟢 ONLINE"
+                if result.available
+                else "🔴 DOWN"
+            )
+
+            lines.append(
+                f"{state} — `{result.path}`"
+            )
 
         await interaction.response.send_message(
-            embed=self._embed("Status", "\n".join(lines)),
+            embed=self._embed(
+                "Status",
+                "\n".join(lines),
+            ),
             ephemeral=True,
         )
 
@@ -70,13 +84,20 @@ class WebsiteGroup(app_commands.Group):
     )
     async def stats(self, interaction: discord.Interaction):
         try:
-            overall = await self.bot.database.get_website_overall()
-            rows = await self.bot.database.get_website_stats()
+            overall = (
+                await self.bot.database.get_website_overall()
+            )
+
+            rows = (
+                await self.bot.database.get_website_stats()
+            )
+
         except Exception as exc:
             await interaction.response.send_message(
                 embed=self._embed(
                     "Statistics",
-                    f"Unable to load statistics.\n\n`{str(exc)[:500]}`",
+                    "Unable to load website statistics.\n\n"
+                    f"Error: `{str(exc)[:500]}`",
                     0xFF4444,
                 ),
                 ephemeral=True,
@@ -100,19 +121,31 @@ class WebsiteGroup(app_commands.Group):
             inline=True,
         )
 
-        average = overall.get("average_response_ms")
+        average = overall.get(
+            "average_response_ms"
+        )
 
         embed.add_field(
             name="AVG RESPONSE",
-            value=f"`{average} ms`" if average is not None else "`—`",
+            value=(
+                f"`{average} ms`"
+                if average is not None
+                else "`—`"
+            ),
             inline=True,
         )
 
-        maximum = overall.get("max_response_ms")
+        maximum = overall.get(
+            "max_response_ms"
+        )
 
         embed.add_field(
             name="MAX RESPONSE",
-            value=f"`{maximum} ms`" if maximum is not None else "`—`",
+            value=(
+                f"`{maximum} ms`"
+                if maximum is not None
+                else "`—`"
+            ),
             inline=True,
         )
 
@@ -133,12 +166,16 @@ class WebsiteGroup(app_commands.Group):
     )
     async def endpoints(self, interaction: discord.Interaction):
         try:
-            rows = await self.bot.database.get_website_stats()
+            rows = (
+                await self.bot.database.get_website_stats()
+            )
+
         except Exception as exc:
             await interaction.response.send_message(
                 embed=self._embed(
                     "Endpoints",
-                    f"Unable to load endpoints.\n\n`{str(exc)[:500]}`",
+                    "Unable to load website endpoints.\n\n"
+                    f"Error: `{str(exc)[:500]}`",
                     0xFF4444,
                 ),
                 ephemeral=True,
@@ -150,11 +187,16 @@ class WebsiteGroup(app_commands.Group):
         paths = set(current.keys())
 
         for row in rows:
-            if row.get("path"):
-                paths.add(row["path"])
+            path = row.get("path")
+
+            if path:
+                paths.add(path)
 
         if not paths:
-            text = "No website endpoints have been recorded yet."
+            text = (
+                "No website endpoints have been recorded yet."
+            )
+
         else:
             lines = []
 
@@ -163,17 +205,24 @@ class WebsiteGroup(app_commands.Group):
 
                 if result is None:
                     state = "⚪ UNKNOWN"
+
                 elif result.available:
                     state = "🟢 ONLINE"
+
                 else:
                     state = "🔴 DOWN"
 
-                lines.append(f"{state} — `{path}`")
+                lines.append(
+                    f"{state} — `{path}`"
+                )
 
             text = "\n".join(lines)
 
         await interaction.response.send_message(
-            embed=self._embed("Endpoints", text),
+            embed=self._embed(
+                "Endpoints",
+                text,
+            ),
             ephemeral=True,
         )
 
@@ -190,12 +239,17 @@ class WebsiteGroup(app_commands.Group):
         limit: app_commands.Range[int, 5, 25] = 10,
     ):
         try:
-            rows = await self.bot.database.get_recent_website_samples(limit)
+            rows = (
+                await self.bot.database
+                .get_recent_website_samples(limit)
+            )
+
         except Exception as exc:
             await interaction.response.send_message(
                 embed=self._embed(
                     "History",
-                    f"Unable to load history.\n\n`{str(exc)[:500]}`",
+                    "Unable to load website history.\n\n"
+                    f"Error: `{str(exc)[:500]}`",
                     0xFF4444,
                 ),
                 ephemeral=True,
@@ -203,7 +257,10 @@ class WebsiteGroup(app_commands.Group):
             return
 
         if not rows:
-            text = "No website history has been recorded yet."
+            text = (
+                "No website history has been recorded yet."
+            )
+
         else:
             lines = []
 
@@ -214,7 +271,9 @@ class WebsiteGroup(app_commands.Group):
                     else "DOWN"
                 )
 
-                response_ms = row.get("response_ms")
+                response_ms = row.get(
+                    "response_ms"
+                )
 
                 response_text = (
                     f"{round(response_ms)} ms"
@@ -225,13 +284,17 @@ class WebsiteGroup(app_commands.Group):
                 lines.append(
                     f"• `{row.get('checked_at', 'unknown')}` — "
                     f"`{row.get('path', '/')}` — "
-                    f"{state} — `{response_text}`"
+                    f"{state} — "
+                    f"`{response_text}`"
                 )
 
             text = "\n".join(lines)
 
         await interaction.response.send_message(
-            embed=self._embed("History", text),
+            embed=self._embed(
+                "History",
+                text,
+            ),
             ephemeral=True,
         )
 
@@ -268,9 +331,13 @@ class WebsiteGroup(app_commands.Group):
                     "User-Agent": "ESNFlux/WebsiteMonitor"
                 },
             ) as client:
-                result = await self.bot.website_monitor.probe_path(
-                    client,
-                    path,
+
+                result = (
+                    await self.bot.website_monitor
+                    .probe_path(
+                        client,
+                        path,
+                    )
                 )
 
         except Exception as exc:
@@ -285,7 +352,11 @@ class WebsiteGroup(app_commands.Group):
             )
             return
 
-        state = "🟢 ONLINE" if result.available else "🔴 DOWN"
+        state = (
+            "🟢 ONLINE"
+            if result.available
+            else "🔴 DOWN"
+        )
 
         status_code = (
             result.status_code
@@ -307,10 +378,15 @@ class WebsiteGroup(app_commands.Group):
         )
 
         if result.error:
-            text += f"\nError: `{result.error[:500]}`"
+            text += (
+                f"\nError: `{result.error[:500]}`"
+            )
 
         await interaction.response.send_message(
-            embed=self._embed("Check", text),
+            embed=self._embed(
+                "Check",
+                text,
+            ),
             ephemeral=True,
         )
 ```
