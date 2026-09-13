@@ -7,7 +7,7 @@ from .settings import settings as default_settings
 
 
 def build_api(monitor, database, config=None):
-    app = FastAPI(title="ESNFlux SMP API", version="1.1")
+    app = FastAPI(title="ESNFlux SMP API", version="1.2")
     config = config or default_settings
 
     app.add_middleware(
@@ -33,6 +33,7 @@ def build_api(monitor, database, config=None):
             "online": state.online,
             "players": state.players,
             "player_names": state.player_names,
+            "player_names_available": state.player_names_available,
             "latency_ms": state.latency_ms,
             "checked_at": state.checked_at,
             "error": state.error,
@@ -40,7 +41,13 @@ def build_api(monitor, database, config=None):
 
     @app.get("/api/smp/players")
     async def players():
-        return {"online": monitor.state.online, "count": monitor.state.players, "players": monitor.state.player_names}
+        state = monitor.state
+        return {
+            "online": state.online,
+            "count": state.players,
+            "players": state.player_names,
+            "names_available": state.player_names_available,
+        }
 
     @app.get("/api/smp/stats")
     async def stats(limit: int = 500):
