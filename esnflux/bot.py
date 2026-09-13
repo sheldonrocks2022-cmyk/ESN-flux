@@ -24,6 +24,8 @@ class ESNFluxBot(commands.Bot):
 
     async def on_ready(self):
         self.peak = int(await self.database.get_value("smp_peak", "0"))
+        self.previous_players = set(await self.database.get_active_sessions())
+        self.previous_online = self.monitor.state.online
         await self.change_presence(activity=discord.Game(name="ESN SMP monitoring"))
 
     async def send_log(self, embed):
