@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <meta name="description" content="ESN SMP live status and statistics powered by ESN Flux.">
+  <title>ESN Flux // SMP Status</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">ESN NETWORK // FLUX</p>
+        <h1>ESN SMP <span>LIVE STATUS</span></h1>
+        <p class="muted">Minecraft Bedrock monitoring, statistics and live player tracking.</p>
+      </div>
+      <div id="connection" class="pill">CONNECTING</div>
+    </header>
+
+    <section class="grid cards" aria-label="Current server status">
+      <article class="card status-card"><p>SERVER</p><strong id="server-status">—</strong><span id="server-detail">Waiting for Flux</span></article>
+      <article class="card"><p>PLAYERS</p><strong id="players">—</strong><span>currently online</span></article>
+      <article class="card"><p>LATENCY</p><strong id="latency">—</strong><span>server response</span></article>
+      <article class="card"><p>PEAK</p><strong id="peak">—</strong><span>tracked maximum</span></article>
+    </section>
+
+    <section class="grid lower">
+      <article class="panel">
+        <div class="panel-head"><div><p class="eyebrow">LIVE</p><h2>Players Online</h2></div><span id="checked">—</span></div>
+        <div id="player-list" class="players"><div class="empty">Waiting for player data…</div></div>
+      </article>
+
+      <article class="panel">
+        <div class="panel-head"><div><p class="eyebrow">STATISTICS</p><h2>Server Health</h2></div><span>last 500 samples</span></div>
+        <div class="stats">
+          <div><span>Uptime</span><strong id="uptime">—</strong></div>
+          <div><span>Average Players</span><strong id="average-players">—</strong></div>
+          <div><span>Average Latency</span><strong id="average-latency">—</strong></div>
+          <div><span>Samples</span><strong id="samples">—</strong></div>
+        </div>
+      </article>
+    </section>
+
+    <section class="panel history-panel">
+      <div class="panel-head"><div><p class="eyebrow">HISTORY</p><h2>Recent Activity</h2></div><span>auto-refresh: 30s</span></div>
+      <div class="chart-wrap"><canvas id="chart" height="220"></canvas></div>
+    </section>
+
+    <footer><span>ESN Flux • SMP Operations</span><span>esnoffical.com</span></footer>
+  </main>
+  <script>window.ESN_FLUX_API_BASE = window.ESN_FLUX_API_BASE || "";</script>
+  <script src="/app.js"></script>
+</body>
+</html>
