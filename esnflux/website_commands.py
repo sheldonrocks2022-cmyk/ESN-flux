@@ -2,7 +2,7 @@ import discord
 from discord import app_commands
 from datetime import datetime, timezone
 import httpx
-
+from .website import DEFAULT_PATHS
 
 # Website paths supported by the bot
 DEFAULT_PATHS = {
