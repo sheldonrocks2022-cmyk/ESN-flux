@@ -12,10 +12,18 @@ DEFAULT_PATHS = {
 
 class WebsiteGroup(app_commands.Group):
     def __init__(self, bot):
-        super().__init__(name="website", description="ESN website monitoring operations")
+        super().__init__(
+            name="website",
+            description="ESN website monitoring operations",
+        )
         self.bot = bot
 
-    def _embed(self, title: str, description: str, colour: int = 0x42E8F4):
+    def _embed(
+        self,
+        title: str,
+        description: str,
+        colour: int = 0x42E8F4,
+    ):
         embed = discord.Embed(
             title=f"🌐 ESN WEBSITE // {title.upper()}",
             description=description,
@@ -27,7 +35,7 @@ class WebsiteGroup(app_commands.Group):
 
     @app_commands.command(
         name="status",
-        description="Show the current ESN website endpoint status"
+        description="Show the current ESN website endpoint status",
     )
     async def status(self, interaction: discord.Interaction):
         monitor = self.bot.website_monitor
@@ -37,27 +45,37 @@ class WebsiteGroup(app_commands.Group):
             await interaction.response.send_message(
                 embed=self._embed(
                     "Status",
-                    "Website monitoring has not completed its first check yet."
+                    "Website monitoring has not completed its first check yet.",
                 ),
                 ephemeral=True,
             )
             return
 
-        available = sum(1 for result in results if result.available)
+        available = sum(
+            1 for result in results if result.available
+        )
         total = len(results)
-        failed = [result for result in results if not result.available]
+        failed = [
+            result for result in results
+            if not result.available
+        ]
 
-        description = f"**{available}/{total}** monitored endpoints are available.\n\n"
+        description = (
+            f"**{available}/{total}** monitored endpoints "
+            "are available.\n\n"
+        )
 
         if failed:
             description += "**Unavailable:**\n"
             description += "\n".join(
-                f"• `{r.path}` — {r.error or 'unavailable'}"
-                for r in failed[:10]
+                f"• `{result.path}` — "
+                f"{result.error or 'unavailable'}"
+                for result in failed[:10]
             )
         else:
             description += (
-                "All monitored ESN website endpoints are responding normally."
+                "All monitored ESN website endpoints "
+                "are responding normally."
             )
 
         await interaction.response.send_message(
@@ -67,7 +85,7 @@ class WebsiteGroup(app_commands.Group):
 
     @app_commands.command(
         name="stats",
-        description="Show website uptime and response-time statistics"
+        description="Show website uptime and response-time statistics",
     )
     async def stats(self, interaction: discord.Interaction):
         overall = await self.bot.database.get_website_overall()
@@ -75,7 +93,8 @@ class WebsiteGroup(app_commands.Group):
 
         embed = self._embed(
             "Statistics",
-            "Long-term telemetry collected by ESN Flux for the ESN website."
+            "Long-term telemetry collected by ESN Flux "
+            "for the ESN website.",
         )
 
         embed.add_field(
@@ -123,7 +142,7 @@ class WebsiteGroup(app_commands.Group):
 
     @app_commands.command(
         name="endpoints",
-        description="Show every monitored ESN website endpoint"
+        description="Show every monitored ESN website endpoint",
     )
     async def endpoints(self, interaction: discord.Interaction):
         rows = await self.bot.database.get_website_stats()
@@ -133,7 +152,8 @@ class WebsiteGroup(app_commands.Group):
             text = "No website telemetry has been recorded yet."
         else:
             paths = sorted(
-                set(current) | {row["path"] for row in rows}
+                set(current)
+                | {row["path"] for row in rows}
             )
 
             lines = []
@@ -141,13 +161,12 @@ class WebsiteGroup(app_commands.Group):
             for path in paths:
                 result = current.get(path)
 
-                state = (
-                    "🟢 ONLINE"
-                    if result and result.available
-                    else "🔴 DOWN"
-                    if result
-                    else "⚪ UNKNOWN"
-                )
+                if result and result.available:
+                    state = "🟢 ONLINE"
+                elif result:
+                    state = "🔴 DOWN"
+                else:
+                    state = "⚪ UNKNOWN"
 
                 lines.append(f"{state} — `{path}`")
 
@@ -160,26 +179,31 @@ class WebsiteGroup(app_commands.Group):
 
     @app_commands.command(
         name="history",
-        description="Show recent website monitoring checks"
+        description="Show recent website monitoring checks",
     )
     @app_commands.describe(
-        limit="Number of checks to show, from 5 to 25"
+        limit="Number of checks to show, from 5 to 25",
     )
     async def history(
         self,
         interaction: discord.Interaction,
         limit: app_commands.Range[int, 5, 25] = 10,
     ):
-        rows = await self.bot.database.get_recent_website_samples(limit)
+        rows = await self.bot.database.get_recent_website_samples(
+            limit
+        )
 
         if not rows:
             text = "No website history has been recorded yet."
         else:
             text = "\n".join(
-                f"• `{row['checked_at']}` — "
-                f"`{row['path']}` — "
-                f"{'ONLINE' if row['available'] else 'DOWN'} — "
-                f"`{round(row['response_ms']) if row['response_ms'] is not None else '—'} ms`"
+                (
+                    f"• `{row['checked_at']}` — "
+                    f"`{row['path']}` — "
+                    f"{'ONLINE' if row['available'] else 'DOWN'} — "
+                    f"`{round(row['response_ms']) if row['response_ms'] "
+                    f"is not None else '—'} ms`"
+                )
                 for row in rows
             )
 
@@ -190,10 +214,10 @@ class WebsiteGroup(app_commands.Group):
 
     @app_commands.command(
         name="check",
-        description="Immediately check a monitored website path"
+        description="Immediately check a monitored website path",
     )
     @app_commands.describe(
-        path="Website path such as / or /smp"
+        path="Website path such as / or /smp",
     )
     async def check(
         self,
@@ -206,7 +230,8 @@ class WebsiteGroup(app_commands.Group):
             await interaction.response.send_message(
                 embed=self._embed(
                     "Check",
-                    f"`{path}` is not one of the monitored endpoints."
+                    f"`{path}` is not one of the "
+                    "monitored endpoints.",
                 ),
                 ephemeral=True,
             )
@@ -214,7 +239,9 @@ class WebsiteGroup(app_commands.Group):
 
         async with httpx.AsyncClient(
             timeout=15,
-            headers={"User-Agent": "ESNFlux/WebsiteMonitor"},
+            headers={
+                "User-Agent": "ESNFlux/WebsiteMonitor"
+            },
         ) as client:
             result = await self.bot.website_monitor.probe_path(
                 client,
