@@ -74,6 +74,27 @@ async def test_offline_transition_creates_one_incident_and_closes_sessions():
 
 
 @pytest.mark.asyncio
+async def test_offline_startup_closes_restored_stale_sessions():
+    bot = FakeBot()
+    bot.previous_players = {"Alex", "Sam"}
+
+    old = SimpleNamespace(online=False, players=0, player_names=[])
+    new = SimpleNamespace(
+        online=False,
+        players=0,
+        player_names=[],
+        player_names_available=False,
+        latency_ms=None,
+        error="server unavailable",
+    )
+
+    await bot.state_changed(old, new)
+
+    assert bot.database.closed == ["Alex", "Sam"]
+    assert bot.previous_players == set()
+
+
+@pytest.mark.asyncio
 async def test_recovery_resolves_outage_and_tracks_new_players():
     bot = FakeBot()
     bot.previous_players = set()
