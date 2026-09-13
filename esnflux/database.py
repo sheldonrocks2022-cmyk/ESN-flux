@@ -40,6 +40,7 @@ class Database:
         );
         CREATE INDEX IF NOT EXISTS idx_samples_checked ON server_samples(checked_at);
         CREATE INDEX IF NOT EXISTS idx_sessions_player ON player_sessions(player_name);
+        CREATE INDEX IF NOT EXISTS idx_incidents_kind_resolved ON incidents(kind, resolved_at);
         ''')
         await self._db.commit()
 
@@ -57,6 +58,11 @@ class Database:
         await self._db.commit()
 
     async def open_session(self, name: str):
+        cursor = await self._db.execute(
+            'SELECT id FROM player_sessions WHERE player_name=? AND left_at IS NULL LIMIT 1', (name,)
+        )
+        if await cursor.fetchone():
+            return
         now = datetime.now(timezone.utc).isoformat()
         await self._db.execute('INSERT INTO player_sessions(player_name,joined_at) VALUES(?,?)', (name, now))
         await self._db.commit()
@@ -85,6 +91,14 @@ class Database:
         )
         await self._db.commit()
         return cursor.lastrowid
+
+    async def incident_once(self, kind: str, message: str):
+        cursor = await self._db.execute(
+            'SELECT id FROM incidents WHERE kind=? AND resolved_at IS NULL ORDER BY id DESC LIMIT 1', (kind,)
+        )
+        if await cursor.fetchone():
+            return None
+        return await self.incident(kind, message)
 
     async def resolve_latest(self, kind: str):
         now = datetime.now(timezone.utc).isoformat()
