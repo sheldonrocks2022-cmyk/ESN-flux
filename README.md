@@ -36,7 +36,7 @@ The Flux service can serve the dashboard directly from `/`, while the API remain
 - `/smp status` and `/smp players` slash commands
 - Website health, live status, players, statistics, and history APIs
 - CORS restricted to `https://esnoffical.com`
-- Optional API-key protection for history
+- Public SMP telemetry history for the dashboard
 - Automated unit/integration tests
 - Docker and Docker Compose deployment support
 - CI test and production-image build validation
@@ -49,7 +49,7 @@ The Flux service can serve the dashboard directly from `/`, while the API remain
 - `GET /api/smp/stats?limit=500`
 - `GET /api/smp/history?limit=100`
 
-The history endpoint can require `X-API-Key` when `API_KEY` is configured.
+The API exposes SMP telemetry only; it does not expose Discord credentials, environment secrets, or private account data.
 
 ## Important limitation
 
@@ -83,11 +83,10 @@ Put HTTPS/reverse-proxy termination in front of the service and point `esnoffica
 Before going live:
 1. Configure `DISCORD_TOKEN`.
 2. Configure the ESN Discord guild ID and SMP log channel ID.
-3. Configure a strong `API_KEY` if history should not be public.
-4. Keep `/app/data` on persistent storage so incidents, sessions, samples, and the SMP peak survive restarts.
-5. Point `esnoffical.com` to the deployed Flux service through HTTPS.
-6. Confirm the host can reach `esnsmp.ggwp.cc:17058`.
-7. Verify `/api/health`, `/api/smp/status`, `/api/smp/stats`, Discord slash commands, and the logging channel.
-8. Verify the dashboard from a normal browser and from a mobile browser.
-9. Confirm the Docker health check reports healthy.
-10. Keep the first production run supervised so Discord permissions, SMP query behavior, API connectivity, and database persistence can be verified.
+3. Keep `/app/data` on persistent storage so incidents, sessions, samples, and the SMP peak survive restarts.
+4. Point `esnoffical.com` to the deployed Flux service through HTTPS.
+5. Confirm the host can reach `esnsmp.ggwp.cc:17058`.
+6. Verify `/api/health`, `/api/smp/status`, `/api/smp/stats`, Discord slash commands, and the logging channel.
+7. Verify the dashboard from a normal browser and from a mobile browser.
+8. Confirm the Docker health check reports healthy.
+9. Keep the first production run supervised so Discord permissions, SMP query behavior, API connectivity, and database persistence can be verified.
