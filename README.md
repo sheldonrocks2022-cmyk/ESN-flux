@@ -1,15 +1,21 @@
 # ESNFlux
 
-ESNFlux is the operations and Discord system for **ESN SMP**. It monitors the Minecraft Bedrock server, tracks observable player activity, records server samples and incidents, exposes SMP/status data to the ESN website, and posts SMP events to a configured Discord logging channel.
+ESNFlux is the operations and Discord system for **ESN SMP**. It monitors the Minecraft Bedrock server, tracks observable player activity, records server samples and incidents, exposes SMP/status data to the ESN tracking website, and posts SMP events to a configured Discord logging channel.
 
 ## Scope
 
 ESNFlux is intentionally limited to:
 - ESN SMP monitoring and statistics
 - SMP-related Discord functionality
-- ESN website SMP/status API
+- ESN tracking website SMP/status API and dashboard
 
 It does **not** power unrelated ESN projects and contains no AI features.
+
+## Official tracking website
+
+- `https://esnoffical.com`
+
+The Flux service can serve the dashboard directly from `/`, while the API remains available under `/api/*`. The dashboard automatically refreshes live SMP data every 30 seconds.
 
 ## Server
 
@@ -21,16 +27,29 @@ It does **not** power unrelated ESN projects and contains no AI features.
 
 - Online/offline monitoring
 - Player count and observable player-name samples when supported by the Bedrock query protocol
-- Player session tracking
+- Player session tracking with restart recovery
 - Persistent peak-player tracking
 - Server samples with latency
+- Aggregated uptime, average players, peak, and latency statistics
 - Outage incident creation and recovery resolution
 - Branded Discord status, player, and peak logs
 - `/smp status` and `/smp players` slash commands
-- Website status, players, health, and history API
+- Website health, live status, players, statistics, and history APIs
+- CORS restricted to `https://esnoffical.com`
 - Optional API-key protection for history
 - Automated unit/integration tests
-- Docker-based deployment support
+- Docker and Docker Compose deployment support
+- CI test and production-image build validation
+
+## API
+
+- `GET /api/health`
+- `GET /api/smp/status`
+- `GET /api/smp/players`
+- `GET /api/smp/stats?limit=500`
+- `GET /api/smp/history?limit=100`
+
+The history endpoint can require `X-API-Key` when `API_KEY` is configured.
 
 ## Important limitation
 
@@ -42,14 +61,33 @@ Python 3.11+ is recommended. Copy `.env.example` to `.env`, install dependencies
 
 Never commit real Discord tokens, API secrets, database files, or production credentials.
 
+## Production deployment
+
+For a persistent deployment:
+
+```bash
+docker compose up -d --build
+```
+
+The Compose configuration:
+- restarts Flux automatically after a container failure
+- persists `/app/data` in a Docker volume
+- exposes port `8080`
+- performs an HTTP health check against `/api/health`
+- builds the dashboard into the production image
+
+Put HTTPS/reverse-proxy termination in front of the service and point `esnoffical.com` at that public service. Do not expose the container's raw HTTP port directly to the public internet unless the hosting environment provides equivalent network protection.
+
 ## Production checklist
 
-Before deployment:
+Before going live:
 1. Configure `DISCORD_TOKEN`.
 2. Configure the ESN Discord guild ID and SMP log channel ID.
-3. Configure a strong `API_KEY` if the history endpoint is exposed outside a trusted private network.
+3. Configure a strong `API_KEY` if history should not be public.
 4. Keep `/app/data` on persistent storage so incidents, sessions, samples, and the SMP peak survive restarts.
-5. Expose the API through HTTPS/reverse proxy if it is publicly reachable.
+5. Point `esnoffical.com` to the deployed Flux service through HTTPS.
 6. Confirm the host can reach `esnsmp.ggwp.cc:17058`.
-7. Start Flux and verify `/api/health`, `/api/smp/status`, Discord slash commands, and the configured logging channel.
-8. Keep the first production run supervised so startup, Discord permissions, and SMP query behavior can be verified.
+7. Verify `/api/health`, `/api/smp/status`, `/api/smp/stats`, Discord slash commands, and the logging channel.
+8. Verify the dashboard from a normal browser and from a mobile browser.
+9. Confirm the Docker health check reports healthy.
+10. Keep the first production run supervised so Discord permissions, SMP query behavior, API connectivity, and database persistence can be verified.
