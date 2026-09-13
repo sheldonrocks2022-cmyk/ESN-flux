@@ -2,6 +2,7 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from esnflux.api import build_api
+from esnflux.settings import settings
 
 
 class FakeMonitor:
@@ -36,10 +37,16 @@ async def test_health_and_status_endpoints():
 
 
 @pytest.mark.asyncio
-async def test_history_requires_api_key_when_configured(monkeypatch):
-    monkeypatch.setenv("API_KEY", "secret")
-    app = build_api(FakeMonitor(), FakeDatabase())
-    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        denied = await client.get("/api/smp/history")
+async def test_history_requires_api_key_when_configured():
+    old_key = settings.api_key
+    settings.api_key = "secret"
+    try:
+        app = build_api(FakeMonitor(), FakeDatabase())
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+            denied = await client.get("/api/smp/history")
+            allowed = await client.get("/api/smp/history", headers={"X-API-Key": "secret"})
 
-    assert denied.status_code == 401
+        assert denied.status_code == 401
+        assert allowed.status_code == 200
+    finally:
+        settings.api_key = old_key
