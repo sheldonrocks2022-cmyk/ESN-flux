@@ -73,7 +73,14 @@ class SMPMonitor:
     async def run(self):
         self._running = True
         while self._running:
-            await self.probe()
+            try:
+                await self.probe()
+            except asyncio.CancelledError:
+                raise
+            except Exception:
+                # A persistence/callback failure must not kill the monitor loop.
+                # The next interval retries the complete probe and persistence path.
+                pass
             await asyncio.sleep(self.interval)
 
     async def start(self):
