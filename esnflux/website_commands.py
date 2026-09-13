@@ -1,6 +1,8 @@
 import discord
 from discord import app_commands
 from datetime import datetime, timezone
+import httpx
+from .website import DEFAULT_PATHS
 
 
 class WebsiteGroup(app_commands.Group):
@@ -76,14 +78,15 @@ class WebsiteGroup(app_commands.Group):
             )
         await interaction.response.send_message(embed=self._embed("History", text), ephemeral=True)
 
-    @app_commands.command(name="check", description="Immediately check a website path")
+    @app_commands.command(name="check", description="Immediately check a monitored website path")
     @app_commands.describe(path="Website path such as / or /smp")
     async def check(self, interaction: discord.Interaction, path: str = "/"):
         path = "/" + path.lstrip("/")
-        if path not in self.bot.website_monitor.results and path not in self.bot.website_paths:
+        if path not in DEFAULT_PATHS:
             await interaction.response.send_message(embed=self._embed("Check", f"`{path}` is not one of the monitored endpoints."), ephemeral=True)
             return
-        result = await self.bot.website_monitor.probe_path(self.bot.website_client, path)
+        async with httpx.AsyncClient(timeout=15, headers={"User-Agent": "ESNFlux/WebsiteMonitor"}) as client:
+            result = await self.bot.website_monitor.probe_path(client, path)
         state = "ONLINE" if result.available else "DOWN"
         detail = f"**{state}**\nHTTP: `{result.status_code or '—'}`\nResponse: `{round(result.response_ms or 0)} ms`"
         if result.error:
