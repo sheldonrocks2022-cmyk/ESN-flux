@@ -15,6 +15,7 @@ class Settings:
     api_host: str = os.getenv("API_HOST", "0.0.0.0")
     api_port: int = int(os.getenv("API_PORT", "8080"))
     api_key: str = os.getenv("API_KEY", "")
+    website_url: str = os.getenv("WEBSITE_URL", "https://esnoffical.com").rstrip("/")
     smp_log_channel_id: int = int(os.getenv("SMP_LOG_CHANNEL_ID", "0"))
     staff_role_ids: tuple[int, ...] = tuple(
         int(x.strip()) for x in os.getenv("STAFF_ROLE_IDS", "").split(",") if x.strip()
