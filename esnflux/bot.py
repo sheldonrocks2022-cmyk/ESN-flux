@@ -59,9 +59,13 @@ class ESNFluxBot(commands.Bot):
                 await self.database.resolve_latest("SMP_OFFLINE")
             else:
                 await self.database.incident_once("SMP_OFFLINE", new.error or "ESN SMP became unreachable")
-                for name in sorted(self.previous_players):
-                    await self.database.close_session(name)
-                self.previous_players = set()
+
+        # If Flux starts while the SMP is offline, restored sessions are stale
+        # even though there was no in-memory online -> offline transition.
+        if not new.online and self.previous_players:
+            for name in sorted(self.previous_players):
+                await self.database.close_session(name)
+            self.previous_players = set()
 
         if new.online and new.player_names_available:
             current = set(new.player_names)
