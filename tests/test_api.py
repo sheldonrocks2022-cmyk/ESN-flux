@@ -26,6 +26,16 @@ class FakeDatabase:
             "player_names": ["Alex", "Sam", "Steve"],
         }]
 
+    async def get_stats(self, limit=500):
+        return {
+            "sample_count": limit,
+            "uptime_pct": 99.5,
+            "average_players": 2.5,
+            "peak_players": 10,
+            "average_latency_ms": 40.0,
+            "latest_sample_at": "2026-09-13T00:00:00+00:00",
+        }
+
 
 def make_settings(api_key="", website_url="https://esnoffical.com"):
     return type("TestSettings", (), {"api_key": api_key, "website_url": website_url})()
@@ -66,6 +76,26 @@ async def test_unconfigured_origin_is_not_allowed_by_cors():
 
     assert response.status_code == 200
     assert "access-control-allow-origin" not in response.headers
+
+
+@pytest.mark.asyncio
+async def test_stats_endpoint_is_bounded_and_returns_dashboard_data():
+    class RecordingDatabase(FakeDatabase):
+        def __init__(self):
+            self.last_limit = None
+
+        async def get_stats(self, limit=500):
+            self.last_limit = limit
+            return await super().get_stats(limit)
+
+    database = RecordingDatabase()
+    app = build_api(FakeMonitor(), database, make_settings())
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.get("/api/smp/stats?limit=9999")
+
+    assert response.status_code == 200
+    assert database.last_limit == 500
+    assert response.json()["peak_players"] == 10
 
 
 @pytest.mark.asyncio
