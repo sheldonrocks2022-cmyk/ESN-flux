@@ -102,14 +102,13 @@ async def test_stats_endpoint_is_bounded_and_returns_dashboard_data():
 
 
 @pytest.mark.asyncio
-async def test_history_requires_api_key_when_configured():
+async def test_public_dashboard_history_stays_available_with_api_key_configured():
     app = build_api(FakeMonitor(), FakeDatabase(), make_settings("secret"))
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-        denied = await client.get("/api/smp/history")
-        allowed = await client.get("/api/smp/history", headers={"X-API-Key": "secret"})
+        response = await client.get("/api/smp/history")
 
-    assert denied.status_code == 401
-    assert allowed.status_code == 200
+    assert response.status_code == 200
+    assert response.json()["samples"]
 
 
 @pytest.mark.asyncio
