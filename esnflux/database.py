@@ -84,6 +84,12 @@ class Database:
         )
         await self._db.commit()
 
+    async def get_active_sessions(self):
+        cursor = await self._db.execute(
+            'SELECT player_name FROM player_sessions WHERE left_at IS NULL ORDER BY player_name'
+        )
+        return [row['player_name'] for row in await cursor.fetchall()]
+
     async def incident(self, kind: str, message: str):
         now = datetime.now(timezone.utc).isoformat()
         cursor = await self._db.execute(
