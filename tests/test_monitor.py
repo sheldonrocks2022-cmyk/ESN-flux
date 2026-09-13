@@ -1,3 +1,4 @@
+import asyncio
 from types import SimpleNamespace
 
 import pytest
@@ -37,6 +38,7 @@ async def test_monitor_records_online_state(monkeypatch):
     assert state.online is True
     assert state.players == 2
     assert state.player_names == ["Alex", "Sam"]
+    assert state.player_names_available is True
     assert state.latency_ms is not None
     assert db.samples[-1][0] is True
 
@@ -53,6 +55,7 @@ async def test_monitor_handles_probe_failure(monkeypatch):
 
     assert state.online is False
     assert state.players == 0
+    assert state.player_names_available is False
     assert state.latency_ms is None
     assert "TimeoutError" in state.error
     assert db.samples[-1][0] is False
@@ -76,6 +79,27 @@ async def test_monitor_treats_missing_player_sample_as_unknown(monkeypatch):
     assert state.online is True
     assert state.players == 4
     assert state.player_names == []
+    assert state.player_names_available is True
+
+
+@pytest.mark.asyncio
+async def test_monitor_treats_missing_players_object_as_unknown(monkeypatch):
+    class FakeServer:
+        def status(self):
+            return SimpleNamespace()
+
+    async def fake_to_thread(func, *args, **kwargs):
+        if func.__name__ == "lookup":
+            return FakeServer()
+        return func(*args, **kwargs)
+
+    monkeypatch.setattr("esnflux.monitor.asyncio.to_thread", fake_to_thread)
+    state = await SMPMonitor("example", 17058, 30, FakeDatabase()).probe()
+
+    assert state.online is True
+    assert state.players == 0
+    assert state.player_names == []
+    assert state.player_names_available is False
 
 
 @pytest.mark.asyncio
@@ -85,7 +109,6 @@ async def test_monitor_start_is_idempotent(monkeypatch):
     async def fake_run():
         await asyncio.sleep(60)
 
-    import asyncio
     monkeypatch.setattr(monitor, "run", fake_run)
 
     await monitor.start()
