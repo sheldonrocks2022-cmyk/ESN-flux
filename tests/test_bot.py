@@ -107,7 +107,11 @@ async def test_on_ready_restores_active_sessions():
         monitor=SimpleNamespace(state=SimpleNamespace(online=True)),
     )
     bot.database.active_sessions = ["Alex", "Sam"]
-    bot.change_presence = lambda **kwargs: None
+
+    async def fake_change_presence(**kwargs):
+        return None
+
+    bot.change_presence = fake_change_presence
 
     await ESNFluxBot.on_ready(bot)
 
