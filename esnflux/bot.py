@@ -3,6 +3,7 @@ from discord import app_commands
 from discord.ext import commands
 from .embeds import status_embed, player_embed, peak_embed
 
+
 class ESNFluxBot(commands.Bot):
     def __init__(self, monitor, database, settings):
         intents = discord.Intents.default()
@@ -13,6 +14,7 @@ class ESNFluxBot(commands.Bot):
         self.previous_players: set[str] = set()
         self.previous_online = False
         self.peak = 0
+        self._state_initialized = False
 
     async def setup_hook(self):
         self.tree.add_command(SMPGroup(self))
@@ -22,10 +24,16 @@ class ESNFluxBot(commands.Bot):
         else:
             await self.tree.sync()
 
-    async def on_ready(self):
+    async def initialize_state(self):
+        if self._state_initialized:
+            return
         self.peak = int(await self.database.get_value("smp_peak", "0"))
         self.previous_players = set(await self.database.get_active_sessions())
         self.previous_online = self.monitor.state.online
+        self._state_initialized = True
+
+    async def on_ready(self):
+        await self.initialize_state()
         await self.change_presence(activity=discord.Game(name="ESN SMP monitoring"))
 
     async def send_log(self, embed):
@@ -55,11 +63,7 @@ class ESNFluxBot(commands.Bot):
                     await self.database.close_session(name)
                 self.previous_players = set()
 
-        # A successful probe with no names can mean the query protocol did not
-        # provide a player sample. Only treat names as authoritative when they
-        # are present, or when the server explicitly reports zero players.
-        names_available = bool(new.player_names) or new.players == 0
-        if new.online and names_available:
+        if new.online and new.player_names_available:
             current = set(new.player_names)
             for name in sorted(current - self.previous_players):
                 await self.database.open_session(name)
@@ -76,6 +80,7 @@ class ESNFluxBot(commands.Bot):
 
         self.previous_online = new.online
 
+
 class SMPGroup(app_commands.Group):
     def __init__(self, bot):
         super().__init__(name="smp", description="ESN SMP operations")
@@ -84,12 +89,18 @@ class SMPGroup(app_commands.Group):
     @app_commands.command(name="status", description="Show current ESN SMP status")
     async def status(self, interaction: discord.Interaction):
         state = self.bot.monitor.state
-        await interaction.response.send_message(embed=status_embed(state.online, state.players, state.latency_ms, state.error), ephemeral=True)
+        await interaction.response.send_message(
+            embed=status_embed(state.online, state.players, state.latency_ms, state.error),
+            ephemeral=True,
+        )
 
     @app_commands.command(name="players", description="Show the currently detected players")
     async def players(self, interaction: discord.Interaction):
-        names = self.bot.monitor.state.player_names
-        text = "\n".join(f"• `{name}`" for name in names) if names else "No player names are currently available."
+        state = self.bot.monitor.state
+        if not state.player_names_available:
+            text = "Player names are currently unavailable from the Bedrock query."
+        else:
+            text = "\n".join(f"• `{name}`" for name in state.player_names) if state.player_names else "No players are currently detected."
         embed = discord.Embed(title="🟢 ESN SMP // PLAYERS", description=text, colour=0x35FF69)
         embed.set_footer(text="ESNFlux • SMP Operations")
         await interaction.response.send_message(embed=embed, ephemeral=True)
