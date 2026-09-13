@@ -5,6 +5,8 @@ import uvicorn
 from .settings import settings
 from .database import Database
 from .monitor import SMPMonitor
+from .website import WebsiteMonitor
+from .website_commands import WebsiteGroup
 from .bot import ESNFluxBot
 from .api import build_api
 
@@ -20,10 +22,17 @@ async def run():
         settings.monitor_interval,
         database,
     )
-    monitor.on_change = bot.state_changed
+    website_monitor = WebsiteMonitor(
+        settings.website_url,
+        settings.website_monitor_interval,
+        database,
+    )
     bot.monitor = monitor
+    bot.website_monitor = website_monitor
+    bot.tree.add_command(WebsiteGroup(bot))
+    monitor.on_change = bot.state_changed
 
-    api = build_api(monitor, database)
+    api = build_api(monitor, database, settings, website_monitor)
     server = uvicorn.Server(
         uvicorn.Config(
             api,
@@ -35,12 +44,14 @@ async def run():
 
     await bot.initialize_state()
     await monitor.start()
+    await website_monitor.start()
     api_task = asyncio.create_task(server.serve(), name="esnflux-api")
 
     try:
         await bot.start(settings.discord_token)
     finally:
         await monitor.stop()
+        await website_monitor.stop()
         server.should_exit = True
         await api_task
         await database.close()
