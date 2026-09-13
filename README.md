@@ -1,6 +1,6 @@
 # ESNFlux
 
-ESNFlux is the self-contained operations and Discord system for **ESN SMP**. It monitors the Minecraft Bedrock server, tracks observable player activity, records statistics and incidents, exposes SMP/status data to the ESN website, and posts branded SMP events to a configured Discord logging channel.
+ESNFlux is the operations and Discord system for **ESN SMP**. It monitors the Minecraft Bedrock server, tracks observable player activity, records server samples and incidents, exposes SMP/status data to the ESN website, and posts SMP events to a configured Discord logging channel.
 
 ## Scope
 
@@ -17,22 +17,39 @@ It does **not** power unrelated ESN projects and contains no AI features.
 - Port: `17058`
 - Platform: Minecraft Bedrock
 
-## Main capabilities
+## Current capabilities
 
 - Online/offline monitoring
-- Player count and player-list tracking when supported by the Bedrock query protocol
-- Player sessions and activity history
-- Uptime, downtime, latency and health tracking
-- Incidents and recovery detection
-- SMP statistics and leaderboards
-- Black/green branded Discord logging embeds
-- Staff-controlled Discord logging channel
-- Public website status/statistics API
-- Diagnostics and database backups
-- Automated tests
+- Player count and observable player-name samples when supported by the Bedrock query protocol
+- Player session tracking
+- Persistent peak-player tracking
+- Server samples with latency
+- Outage incident creation and recovery resolution
+- Branded Discord status, player, and peak logs
+- `/smp status` and `/smp players` slash commands
+- Website status, players, health, and history API
+- Optional API-key protection for history
+- Automated unit/integration tests
+- Docker-based deployment support
+
+## Important limitation
+
+The Bedrock query protocol may return a player count without a complete player-name sample. ESNFlux deliberately treats that situation as **unknown player identity data** instead of incorrectly announcing players as leaving.
 
 ## Development
 
 Python 3.11+ is recommended. Copy `.env.example` to `.env`, install dependencies from `requirements.txt`, and run `python -m esnflux`.
 
-Never commit real Discord tokens, API secrets, or production credentials.
+Never commit real Discord tokens, API secrets, database files, or production credentials.
+
+## Production checklist
+
+Before deployment:
+1. Configure `DISCORD_TOKEN`.
+2. Configure the ESN Discord guild ID and SMP log channel ID.
+3. Configure a strong `API_KEY` if the history endpoint is exposed outside a trusted private network.
+4. Keep `/app/data` on persistent storage so incidents, sessions, samples, and the SMP peak survive restarts.
+5. Expose the API through HTTPS/reverse proxy if it is publicly reachable.
+6. Confirm the host can reach `esnsmp.ggwp.cc:17058`.
+7. Start Flux and verify `/api/health`, `/api/smp/status`, Discord slash commands, and the configured logging channel.
+8. Keep the first production run supervised so startup, Discord permissions, and SMP query behavior can be verified.
