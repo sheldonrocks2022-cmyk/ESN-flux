@@ -128,3 +128,13 @@ async def test_history_limit_is_bounded():
         assert database.last_limit == 500
         await client.get("/api/smp/history?limit=0")
         assert database.last_limit == 1
+
+
+@pytest.mark.asyncio
+async def test_dashboard_root_is_served_by_flux():
+    app = build_api(FakeMonitor(), FakeDatabase(), make_settings())
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.get("/")
+
+    assert response.status_code == 200
+    assert "ESN Flux" in response.text
