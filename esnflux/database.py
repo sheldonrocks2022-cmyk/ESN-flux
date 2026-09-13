@@ -2,6 +2,7 @@ from pathlib import Path
 from datetime import datetime, timezone
 import aiosqlite
 
+
 class Database:
     def __init__(self, path: str):
         self.path = path
@@ -51,6 +52,21 @@ class Database:
             response_ms REAL,
             error TEXT
         );
+        CREATE TABLE IF NOT EXISTS website_pages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            url TEXT UNIQUE NOT NULL,
+            first_discovered TEXT NOT NULL,
+            last_seen TEXT NOT NULL,
+            active INTEGER NOT NULL DEFAULT 1
+        );
+        CREATE TABLE IF NOT EXISTS website_crawl_history (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            scanned_at TEXT NOT NULL,
+            pages_found INTEGER NOT NULL,
+            new_pages INTEGER NOT NULL DEFAULT 0,
+            duration_ms REAL,
+            error TEXT
+        );
         CREATE TABLE IF NOT EXISTS settings (
             key TEXT PRIMARY KEY,
             value TEXT NOT NULL
@@ -62,6 +78,8 @@ class Database:
         CREATE INDEX IF NOT EXISTS idx_events_player ON smp_events(player_name);
         CREATE INDEX IF NOT EXISTS idx_website_path_checked ON website_samples(path, checked_at);
         CREATE INDEX IF NOT EXISTS idx_website_checked ON website_samples(checked_at);
+        CREATE INDEX IF NOT EXISTS idx_website_pages_active ON website_pages(active, last_seen);
+        CREATE INDEX IF NOT EXISTS idx_website_crawl_scanned ON website_crawl_history(scanned_at);
         ''')
         await self._db.commit()
 
@@ -165,6 +183,12 @@ class Database:
         )
         return [dict(row) for row in await cursor.fetchall()]
 
+    async def get_recent_website_incidents(self, limit=20):
+        cursor = await self._db.execute(
+            "SELECT * FROM incidents WHERE kind LIKE 'WEBSITE_%' ORDER BY id DESC LIMIT ?", (limit,)
+        )
+        return [dict(row) for row in await cursor.fetchall()]
+
     async def record_event(self, event_type: str, player_name: str, message: str):
         now = datetime.now(timezone.utc).isoformat()
         await self._db.execute(
@@ -198,14 +222,7 @@ class Database:
         )
         samples = [dict(row) for row in await cursor.fetchall()]
         if not samples:
-            return {
-                'sample_count': 0,
-                'uptime_pct': 0.0,
-                'average_players': 0.0,
-                'peak_players': 0,
-                'average_latency_ms': None,
-                'latest_sample_at': None,
-            }
+            return {'sample_count': 0, 'uptime_pct': 0.0, 'average_players': 0.0, 'peak_players': 0, 'average_latency_ms': None, 'latest_sample_at': None}
         online_samples = sum(1 for sample in samples if sample['online'])
         player_values = [sample['players'] for sample in samples]
         latencies = [sample['latency_ms'] for sample in samples if sample['latency_ms'] is not None]
@@ -226,6 +243,55 @@ class Database:
         )
         await self._db.commit()
 
+    async def record_discovered_page(self, url: str):
+        now = datetime.now(timezone.utc).isoformat()
+        cursor = await self._db.execute('SELECT id FROM website_pages WHERE url=?', (url,))
+        existing = await cursor.fetchone()
+        if existing:
+            await self._db.execute(
+                'UPDATE website_pages SET last_seen=?, active=1 WHERE url=?', (now, url)
+            )
+            await self._db.commit()
+            return False
+        await self._db.execute(
+            'INSERT INTO website_pages(url,first_discovered,last_seen,active) VALUES(?,?,?,1)',
+            (url, now, now)
+        )
+        await self._db.commit()
+        return True
+
+    async def mark_missing_pages(self, active_urls):
+        active_urls = set(active_urls)
+        cursor = await self._db.execute('SELECT url FROM website_pages WHERE active=1')
+        current = [row['url'] for row in await cursor.fetchall()]
+        missing = [url for url in current if url not in active_urls]
+        if missing:
+            await self._db.executemany('UPDATE website_pages SET active=0 WHERE url=?', [(url,) for url in missing])
+            await self._db.commit()
+        return missing
+
+    async def get_website_pages(self, active_only=False):
+        query = 'SELECT * FROM website_pages'
+        if active_only:
+            query += ' WHERE active=1'
+        query += ' ORDER BY url ASC'
+        cursor = await self._db.execute(query)
+        return [dict(row) for row in await cursor.fetchall()]
+
+    async def record_website_crawl(self, pages_found: int, new_pages: int, duration_ms: float, error=None):
+        now = datetime.now(timezone.utc).isoformat()
+        await self._db.execute(
+            'INSERT INTO website_crawl_history(scanned_at,pages_found,new_pages,duration_ms,error) VALUES(?,?,?,?,?)',
+            (now, pages_found, new_pages, duration_ms, error)
+        )
+        await self._db.commit()
+
+    async def get_recent_website_crawls(self, limit=20):
+        cursor = await self._db.execute(
+            'SELECT * FROM website_crawl_history ORDER BY id DESC LIMIT ?', (limit,)
+        )
+        return [dict(row) for row in await cursor.fetchall()]
+
     async def get_recent_website_samples(self, limit=50):
         cursor = await self._db.execute(
             'SELECT * FROM website_samples ORDER BY id DESC LIMIT ?', (limit,)
@@ -234,16 +300,10 @@ class Database:
 
     async def get_website_stats(self, limit=5000):
         cursor = await self._db.execute('''
-            SELECT path,
-                   COUNT(*) AS samples,
-                   SUM(available) AS available_samples,
-                   AVG(response_ms) AS average_response_ms,
-                   MAX(response_ms) AS max_response_ms,
+            SELECT path, COUNT(*) AS samples, SUM(available) AS available_samples,
+                   AVG(response_ms) AS average_response_ms, MAX(response_ms) AS max_response_ms,
                    MAX(checked_at) AS latest_checked_at
-            FROM website_samples
-            GROUP BY path
-            ORDER BY path ASC
-            LIMIT ?
+            FROM website_samples GROUP BY path ORDER BY path ASC LIMIT ?
         ''', (limit,))
         rows = [dict(row) for row in await cursor.fetchall()]
         for row in rows:
@@ -256,12 +316,9 @@ class Database:
 
     async def get_website_overall(self):
         cursor = await self._db.execute('''
-            SELECT COUNT(*) AS samples,
-                   SUM(available) AS available_samples,
-                   AVG(response_ms) AS average_response_ms,
-                   MAX(response_ms) AS max_response_ms,
-                   MAX(checked_at) AS latest_checked_at
-            FROM website_samples
+            SELECT COUNT(*) AS samples, SUM(available) AS available_samples,
+                   AVG(response_ms) AS average_response_ms, MAX(response_ms) AS max_response_ms,
+                   MAX(checked_at) AS latest_checked_at FROM website_samples
         ''')
         row = dict(await cursor.fetchone())
         samples = row['samples'] or 0
