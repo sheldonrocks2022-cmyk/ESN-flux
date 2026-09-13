@@ -1,5 +1,8 @@
+from pathlib import Path
+
 from fastapi import FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from .settings import settings as default_settings
 
 
@@ -49,5 +52,9 @@ def build_api(monitor, database, config=None):
         authorize(x_api_key)
         limit = min(max(limit, 1), 500)
         return {"samples": await database.get_recent_samples(limit)}
+
+    dashboard = Path(__file__).resolve().parent.parent / "web"
+    if dashboard.exists():
+        app.mount("/", StaticFiles(directory=dashboard, html=True), name="dashboard")
 
     return app
