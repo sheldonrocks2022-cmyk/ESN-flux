@@ -1,14 +1,16 @@
-```python
 import discord
 from discord import app_commands
 from datetime import datetime, timezone
 import httpx
 
 
+# Website paths supported by the bot
 DEFAULT_PATHS = {
     "/",
     "/smp",
 }
+
+
 
 
 class WebsiteGroup(app_commands.Group):
