@@ -1,13 +1,13 @@
 from pathlib import Path
 
-from fastapi import FastAPI, Header, HTTPException
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from .settings import settings as default_settings
 
 
 def build_api(monitor, database, config=None):
-    app = FastAPI(title="ESNFlux SMP API", version="1.2")
+    app = FastAPI(title="ESNFlux SMP API", version="1.3")
     config = config or default_settings
 
     app.add_middleware(
@@ -15,12 +15,8 @@ def build_api(monitor, database, config=None):
         allow_origins=[config.website_url],
         allow_credentials=False,
         allow_methods=["GET"],
-        allow_headers=["X-API-Key", "Content-Type"],
+        allow_headers=["Content-Type"],
     )
-
-    def authorize(key):
-        if config.api_key and key != config.api_key:
-            raise HTTPException(status_code=401, detail="Unauthorized")
 
     @app.get("/api/health")
     async def health():
@@ -56,8 +52,8 @@ def build_api(monitor, database, config=None):
 
     @app.get("/api/smp/history")
     async def history(limit: int = 100):
-        # History is intentionally public because the public dashboard consumes
-        # it directly. It contains SMP telemetry only and no secrets or user data.
+        # History is public because the public dashboard consumes it directly.
+        # It contains SMP telemetry only and no secrets or user data.
         limit = min(max(limit, 1), 500)
         return {"samples": await database.get_recent_samples(limit)}
 
