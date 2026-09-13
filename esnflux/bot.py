@@ -23,6 +23,7 @@ class ESNFluxBot(commands.Bot):
             await self.tree.sync()
 
     async def on_ready(self):
+        self.peak = int(await self.database.get_value("smp_peak", "0"))
         await self.change_presence(activity=discord.Game(name="ESN SMP monitoring"))
 
     async def send_log(self, embed):
@@ -36,14 +37,27 @@ class ESNFluxBot(commands.Bot):
             except (discord.NotFound, discord.Forbidden, discord.HTTPException):
                 return
         if hasattr(channel, "send"):
-            await channel.send(embed=embed)
+            try:
+                await channel.send(embed=embed)
+            except (discord.Forbidden, discord.HTTPException):
+                pass
 
     async def state_changed(self, old, new):
         if old.online != new.online:
             await self.send_log(status_embed(new.online, new.players, new.latency_ms, new.error))
             if new.online:
                 await self.database.resolve_latest("SMP_OFFLINE")
-        if new.online:
+            else:
+                await self.database.incident_once("SMP_OFFLINE", new.error or "ESN SMP became unreachable")
+                for name in sorted(self.previous_players):
+                    await self.database.close_session(name)
+                self.previous_players = set()
+
+        # A successful probe with no names can mean the query protocol did not
+        # provide a player sample. Only treat names as authoritative when they
+        # are present, or when the server explicitly reports zero players.
+        names_available = bool(new.player_names) or new.players == 0
+        if new.online and names_available:
             current = set(new.player_names)
             for name in sorted(current - self.previous_players):
                 await self.database.open_session(name)
@@ -51,12 +65,13 @@ class ESNFluxBot(commands.Bot):
             for name in sorted(self.previous_players - current):
                 await self.database.close_session(name)
                 await self.send_log(player_embed(name, False, new.players))
-            if new.players > self.peak:
-                self.peak = new.players
-                await self.send_log(peak_embed(new.players))
             self.previous_players = current
-        else:
-            self.previous_players = set()
+
+        if new.online and new.players > self.peak:
+            self.peak = new.players
+            await self.database.set_value("smp_peak", str(self.peak))
+            await self.send_log(peak_embed(new.players))
+
         self.previous_online = new.online
 
 class SMPGroup(app_commands.Group):
