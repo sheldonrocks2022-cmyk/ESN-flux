@@ -1,20 +1,19 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 import asyncio
 import time
 from mcstatus import BedrockServer
+
 
 @dataclass
 class SMPState:
     online: bool = False
     players: int = 0
-    player_names: list[str] = None
+    player_names: list[str] = field(default_factory=list)
+    player_names_available: bool = False
     latency_ms: float | None = None
     checked_at: float = 0.0
     error: str | None = None
 
-    def __post_init__(self):
-        if self.player_names is None:
-            self.player_names = []
 
 class SMPMonitor:
     def __init__(self, host: str, port: int, interval: int, database, on_change=None):
@@ -33,17 +32,37 @@ class SMPMonitor:
             server = await asyncio.to_thread(BedrockServer.lookup, f"{self.host}:{self.port}")
             status = await asyncio.to_thread(server.status)
             latency = (time.perf_counter() - started) * 1000
-            names = []
-            players = getattr(status, 'players', None)
-            if players:
-                players_online = int(getattr(players, 'online', 0) or 0)
-                sample = getattr(players, 'sample', None) or []
-                names = [getattr(p, 'name', str(p)) for p in sample if p]
-            else:
+            players = getattr(status, "players", None)
+            if players is None:
                 players_online = 0
-            new_state = SMPState(True, players_online, names, latency, time.time(), None)
+                names = []
+                names_available = False
+            else:
+                players_online = int(getattr(players, "online", 0) or 0)
+                sample = getattr(players, "sample", None)
+                names = [getattr(player, "name", str(player)) for player in (sample or []) if player]
+                names_available = sample is not None or players_online == 0
+
+            new_state = SMPState(
+                online=True,
+                players=players_online,
+                player_names=names,
+                player_names_available=names_available,
+                latency_ms=latency,
+                checked_at=time.time(),
+                error=None,
+            )
         except Exception as exc:
-            new_state = SMPState(False, 0, [], None, time.time(), f"{type(exc).__name__}: {exc}")
+            new_state = SMPState(
+                online=False,
+                players=0,
+                player_names=[],
+                player_names_available=False,
+                latency_ms=None,
+                checked_at=time.time(),
+                error=f"{type(exc).__name__}: {exc}",
+            )
+
         previous = self.state
         self.state = new_state
         await self.database.sample(new_state.online, new_state.players, new_state.latency_ms, new_state.player_names)
@@ -60,7 +79,7 @@ class SMPMonitor:
     async def start(self):
         if self._task and not self._task.done():
             return
-        self._task = asyncio.create_task(self.run(), name='esnflux-smp-monitor')
+        self._task = asyncio.create_task(self.run(), name="esnflux-smp-monitor")
 
     async def stop(self):
         self._running = False
