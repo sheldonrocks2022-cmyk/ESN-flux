@@ -120,6 +120,33 @@ class Database:
         )
         return [dict(row) for row in await cursor.fetchall()]
 
+    async def get_stats(self, limit=500):
+        cursor = await self._db.execute(
+            'SELECT online, players, latency_ms, checked_at FROM server_samples ORDER BY id DESC LIMIT ?',
+            (limit,)
+        )
+        samples = [dict(row) for row in await cursor.fetchall()]
+        if not samples:
+            return {
+                'sample_count': 0,
+                'uptime_pct': 0.0,
+                'average_players': 0.0,
+                'peak_players': 0,
+                'average_latency_ms': None,
+                'latest_sample_at': None,
+            }
+        online_samples = sum(1 for sample in samples if sample['online'])
+        player_values = [sample['players'] for sample in samples]
+        latencies = [sample['latency_ms'] for sample in samples if sample['latency_ms'] is not None]
+        return {
+            'sample_count': len(samples),
+            'uptime_pct': round((online_samples / len(samples)) * 100, 2),
+            'average_players': round(sum(player_values) / len(player_values), 2),
+            'peak_players': max(player_values),
+            'average_latency_ms': round(sum(latencies) / len(latencies), 2) if latencies else None,
+            'latest_sample_at': samples[0]['checked_at'],
+        }
+
     async def set_value(self, key: str, value: str):
         await self._db.execute(
             'INSERT INTO settings(key,value) VALUES(?,?) ON CONFLICT(key) DO UPDATE SET value=excluded.value',
