@@ -11,6 +11,7 @@ class Settings:
     smp_host: str = os.getenv("SMP_HOST", "esnsmp.ggwp.cc")
     smp_port: int = int(os.getenv("SMP_PORT", "17058"))
     monitor_interval: int = max(10, int(os.getenv("MONITOR_INTERVAL", "30")))
+    website_monitor_interval: int = max(30, int(os.getenv("WEBSITE_MONITOR_INTERVAL", "60")))
     database_path: str = os.getenv("DATABASE_PATH", "data/esnflux.db")
     api_host: str = os.getenv("API_HOST", "0.0.0.0")
     api_port: int = int(os.getenv("API_PORT", "8080"))
