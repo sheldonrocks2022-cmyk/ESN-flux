@@ -55,8 +55,9 @@ def build_api(monitor, database, config=None):
         return await database.get_stats(limit)
 
     @app.get("/api/smp/history")
-    async def history(limit: int = 100, x_api_key: str | None = Header(default=None)):
-        authorize(x_api_key)
+    async def history(limit: int = 100):
+        # History is intentionally public because the public dashboard consumes
+        # it directly. It contains SMP telemetry only and no secrets or user data.
         limit = min(max(limit, 1), 500)
         return {"samples": await database.get_recent_samples(limit)}
 
