@@ -119,7 +119,7 @@ async def test_missing_player_sample_does_not_close_known_players():
 
 
 @pytest.mark.asyncio
-async def test_on_ready_restores_active_sessions():
+async def test_initialize_state_restores_active_sessions():
     bot = SimpleNamespace(
         database=FakeDatabase(),
         previous_players=set(),
@@ -130,12 +130,7 @@ async def test_on_ready_restores_active_sessions():
     )
     bot.database.active_sessions = ["Alex", "Sam"]
 
-    async def fake_change_presence(**kwargs):
-        return None
-
-    bot.change_presence = fake_change_presence
-
-    await ESNFluxBot.on_ready(bot)
+    await ESNFluxBot.initialize_state(bot)
 
     assert bot.previous_players == {"Alex", "Sam"}
     assert bot.previous_online is True
