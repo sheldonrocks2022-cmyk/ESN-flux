@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 
 BLACK = 0x050805
 GREEN = 0x35FF69
+RED = 0xFF4D4D
 DARK_GREEN = 0x0D3B1B
 
 
@@ -26,7 +27,7 @@ def status_embed(online: bool, players: int, latency_ms, error=None):
         embed.add_field(name="LATENCY", value=f"`{latency_ms:.0f} ms`" if latency_ms else "`—`", inline=True)
         return embed
     embed = _base("Server Offline", "ESNFlux cannot currently reach the ESN SMP.", icon="🔴")
-    embed.colour = discord.Colour(0x35FF69)
+    embed.colour = discord.Colour(RED)
     embed.add_field(name="STATUS", value="`OFFLINE`", inline=True)
     if error:
         embed.add_field(name="DETAIL", value=f"`{error[:900]}`", inline=False)
