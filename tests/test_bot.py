@@ -12,6 +12,7 @@ class FakeDatabase:
         self.sessions = []
         self.closed = []
         self.values = {}
+        self.active_sessions = []
 
     async def incident_once(self, kind, message):
         self.incidents.append((kind, message))
@@ -25,6 +26,9 @@ class FakeDatabase:
 
     async def close_session(self, name):
         self.closed.append(name)
+
+    async def get_active_sessions(self):
+        return list(self.active_sessions)
 
     async def get_value(self, key, default=None):
         return self.values.get(key, default)
@@ -91,3 +95,22 @@ async def test_missing_player_sample_does_not_close_known_players():
 
     assert bot.database.closed == []
     assert bot.previous_players == {"Alex", "Sam"}
+
+
+@pytest.mark.asyncio
+async def test_on_ready_restores_active_sessions():
+    bot = SimpleNamespace(
+        database=FakeDatabase(),
+        previous_players=set(),
+        previous_online=False,
+        peak=0,
+        monitor=SimpleNamespace(state=SimpleNamespace(online=True)),
+    )
+    bot.database.active_sessions = ["Alex", "Sam"]
+    bot.change_presence = lambda **kwargs: None
+
+    await ESNFluxBot.on_ready(bot)
+
+    assert bot.previous_players == {"Alex", "Sam"}
+    assert bot.previous_online is True
+    assert bot.peak == 0
