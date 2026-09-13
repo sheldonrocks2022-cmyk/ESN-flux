@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 
 BLACK = 0x050805
 GREEN = 0x35FF69
-RED = 0xFF4D4D
+RED = 0xFF3B30
 DARK_GREEN = 0x0D3B1B
 
 
