@@ -41,6 +41,16 @@ class Database:
             player_name TEXT NOT NULL,
             message TEXT NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS website_samples (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            checked_at TEXT NOT NULL,
+            path TEXT NOT NULL,
+            url TEXT NOT NULL,
+            available INTEGER NOT NULL,
+            status_code INTEGER,
+            response_ms REAL,
+            error TEXT
+        );
         CREATE TABLE IF NOT EXISTS settings (
             key TEXT PRIMARY KEY,
             value TEXT NOT NULL
@@ -50,6 +60,8 @@ class Database:
         CREATE INDEX IF NOT EXISTS idx_incidents_kind_resolved ON incidents(kind, resolved_at);
         CREATE INDEX IF NOT EXISTS idx_events_type_created ON smp_events(event_type, created_at);
         CREATE INDEX IF NOT EXISTS idx_events_player ON smp_events(player_name);
+        CREATE INDEX IF NOT EXISTS idx_website_path_checked ON website_samples(path, checked_at);
+        CREATE INDEX IF NOT EXISTS idx_website_checked ON website_samples(checked_at);
         ''')
         await self._db.commit()
 
@@ -205,6 +217,60 @@ class Database:
             'average_latency_ms': round(sum(latencies) / len(latencies), 2) if latencies else None,
             'latest_sample_at': samples[0]['checked_at'],
         }
+
+    async def record_website_sample(self, result):
+        now = datetime.fromtimestamp(result.checked_at, timezone.utc).isoformat()
+        await self._db.execute(
+            'INSERT INTO website_samples(checked_at,path,url,available,status_code,response_ms,error) VALUES(?,?,?,?,?,?,?)',
+            (now, result.path, result.url, int(result.available), result.status_code, result.response_ms, result.error)
+        )
+        await self._db.commit()
+
+    async def get_recent_website_samples(self, limit=50):
+        cursor = await self._db.execute(
+            'SELECT * FROM website_samples ORDER BY id DESC LIMIT ?', (limit,)
+        )
+        return [dict(row) for row in await cursor.fetchall()]
+
+    async def get_website_stats(self, limit=5000):
+        cursor = await self._db.execute('''
+            SELECT path,
+                   COUNT(*) AS samples,
+                   SUM(available) AS available_samples,
+                   AVG(response_ms) AS average_response_ms,
+                   MAX(response_ms) AS max_response_ms,
+                   MAX(checked_at) AS latest_checked_at
+            FROM website_samples
+            GROUP BY path
+            ORDER BY path ASC
+            LIMIT ?
+        ''', (limit,))
+        rows = [dict(row) for row in await cursor.fetchall()]
+        for row in rows:
+            row['uptime_pct'] = round((row['available_samples'] / row['samples']) * 100, 2) if row['samples'] else 0.0
+            if row['average_response_ms'] is not None:
+                row['average_response_ms'] = round(row['average_response_ms'], 2)
+            if row['max_response_ms'] is not None:
+                row['max_response_ms'] = round(row['max_response_ms'], 2)
+        return rows
+
+    async def get_website_overall(self):
+        cursor = await self._db.execute('''
+            SELECT COUNT(*) AS samples,
+                   SUM(available) AS available_samples,
+                   AVG(response_ms) AS average_response_ms,
+                   MAX(response_ms) AS max_response_ms,
+                   MAX(checked_at) AS latest_checked_at
+            FROM website_samples
+        ''')
+        row = dict(await cursor.fetchone())
+        samples = row['samples'] or 0
+        row['uptime_pct'] = round(((row['available_samples'] or 0) / samples) * 100, 2) if samples else 0.0
+        if row['average_response_ms'] is not None:
+            row['average_response_ms'] = round(row['average_response_ms'], 2)
+        if row['max_response_ms'] is not None:
+            row['max_response_ms'] = round(row['max_response_ms'], 2)
+        return row
 
     async def set_value(self, key: str, value: str):
         await self._db.execute(
