@@ -34,6 +34,13 @@ class Database:
             kind TEXT NOT NULL,
             message TEXT NOT NULL
         );
+        CREATE TABLE IF NOT EXISTS smp_events (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            created_at TEXT NOT NULL,
+            event_type TEXT NOT NULL,
+            player_name TEXT NOT NULL,
+            message TEXT NOT NULL
+        );
         CREATE TABLE IF NOT EXISTS settings (
             key TEXT PRIMARY KEY,
             value TEXT NOT NULL
@@ -41,6 +48,8 @@ class Database:
         CREATE INDEX IF NOT EXISTS idx_samples_checked ON server_samples(checked_at);
         CREATE INDEX IF NOT EXISTS idx_sessions_player ON player_sessions(player_name);
         CREATE INDEX IF NOT EXISTS idx_incidents_kind_resolved ON incidents(kind, resolved_at);
+        CREATE INDEX IF NOT EXISTS idx_events_type_created ON smp_events(event_type, created_at);
+        CREATE INDEX IF NOT EXISTS idx_events_player ON smp_events(player_name);
         ''')
         await self._db.commit()
 
@@ -90,6 +99,30 @@ class Database:
         )
         return [row['player_name'] for row in await cursor.fetchall()]
 
+    async def get_player_sessions(self, name: str):
+        cursor = await self._db.execute(
+            'SELECT * FROM player_sessions WHERE lower(player_name)=lower(?) ORDER BY id DESC', (name,)
+        )
+        return [dict(row) for row in await cursor.fetchall()]
+
+    async def get_player_leaderboard(self, limit=10):
+        cursor = await self._db.execute('''
+            SELECT player_name,
+                   COALESCE(SUM(CASE WHEN duration_seconds IS NOT NULL THEN duration_seconds ELSE 0 END), 0) AS total_seconds,
+                   COUNT(*) AS sessions
+            FROM player_sessions
+            GROUP BY player_name
+            ORDER BY total_seconds DESC, sessions DESC, player_name ASC
+            LIMIT ?
+        ''', (limit,))
+        return [dict(row) for row in await cursor.fetchall()]
+
+    async def get_recent_player_sessions(self, limit=10):
+        cursor = await self._db.execute(
+            'SELECT * FROM player_sessions ORDER BY id DESC LIMIT ?', (limit,)
+        )
+        return [dict(row) for row in await cursor.fetchall()]
+
     async def incident(self, kind: str, message: str):
         now = datetime.now(timezone.utc).isoformat()
         cursor = await self._db.execute(
@@ -113,6 +146,32 @@ class Database:
             (now, kind)
         )
         await self._db.commit()
+
+    async def get_recent_incidents(self, limit=10):
+        cursor = await self._db.execute(
+            'SELECT * FROM incidents ORDER BY id DESC LIMIT ?', (limit,)
+        )
+        return [dict(row) for row in await cursor.fetchall()]
+
+    async def record_event(self, event_type: str, player_name: str, message: str):
+        now = datetime.now(timezone.utc).isoformat()
+        await self._db.execute(
+            'INSERT INTO smp_events(created_at,event_type,player_name,message) VALUES(?,?,?,?)',
+            (now, event_type, player_name, message)
+        )
+        await self._db.commit()
+
+    async def get_recent_events(self, event_type=None, limit=10):
+        if event_type:
+            cursor = await self._db.execute(
+                'SELECT * FROM smp_events WHERE event_type=? ORDER BY id DESC LIMIT ?',
+                (event_type, limit)
+            )
+        else:
+            cursor = await self._db.execute(
+                'SELECT * FROM smp_events ORDER BY id DESC LIMIT ?', (limit,)
+            )
+        return [dict(row) for row in await cursor.fetchall()]
 
     async def get_recent_samples(self, limit=100):
         cursor = await self._db.execute(
