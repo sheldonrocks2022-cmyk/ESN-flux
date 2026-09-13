@@ -57,7 +57,14 @@ async def test_offline_transition_creates_one_incident_and_closes_sessions():
     bot.previous_players = {"Alex", "Sam"}
 
     old = SimpleNamespace(online=True, players=2, player_names=["Alex", "Sam"])
-    new = SimpleNamespace(online=False, players=0, player_names=[], latency_ms=None, error="timeout")
+    new = SimpleNamespace(
+        online=False,
+        players=0,
+        player_names=[],
+        player_names_available=False,
+        latency_ms=None,
+        error="timeout",
+    )
 
     await bot.state_changed(old, new)
 
@@ -72,7 +79,14 @@ async def test_recovery_resolves_outage_and_tracks_new_players():
     bot.previous_players = set()
 
     old = SimpleNamespace(online=False, players=0, player_names=[])
-    new = SimpleNamespace(online=True, players=2, player_names=["Alex", "Sam"], latency_ms=25, error=None)
+    new = SimpleNamespace(
+        online=True,
+        players=2,
+        player_names=["Alex", "Sam"],
+        player_names_available=True,
+        latency_ms=25,
+        error=None,
+    )
 
     await bot.state_changed(old, new)
 
@@ -89,7 +103,14 @@ async def test_missing_player_sample_does_not_close_known_players():
     bot.previous_players = {"Alex", "Sam"}
 
     old = SimpleNamespace(online=True, players=2, player_names=["Alex", "Sam"])
-    new = SimpleNamespace(online=True, players=2, player_names=[], latency_ms=20, error=None)
+    new = SimpleNamespace(
+        online=True,
+        players=2,
+        player_names=[],
+        player_names_available=False,
+        latency_ms=20,
+        error=None,
+    )
 
     await bot.state_changed(old, new)
 
@@ -105,6 +126,7 @@ async def test_on_ready_restores_active_sessions():
         previous_online=False,
         peak=0,
         monitor=SimpleNamespace(state=SimpleNamespace(online=True)),
+        _state_initialized=False,
     )
     bot.database.active_sessions = ["Alex", "Sam"]
 
@@ -118,3 +140,4 @@ async def test_on_ready_restores_active_sessions():
     assert bot.previous_players == {"Alex", "Sam"}
     assert bot.previous_online is True
     assert bot.peak == 0
+    assert bot._state_initialized is True
