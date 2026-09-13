@@ -33,6 +33,7 @@ async def run():
         )
     )
 
+    await bot.initialize_state()
     await monitor.start()
     api_task = asyncio.create_task(server.serve(), name="esnflux-api")
 
