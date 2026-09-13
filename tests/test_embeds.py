@@ -10,7 +10,9 @@ def test_online_embed():
 def test_offline_embed():
     embed = status_embed(False, 0, None, "Timeout")
     assert "SERVER OFFLINE" in embed.title
-    assert "Timeout" in embed.fields[0].value
+    assert any(f.name == "STATUS" and "OFFLINE" in f.value for f in embed.fields)
+    assert any(f.name == "DETAIL" and "Timeout" in f.value for f in embed.fields)
+    assert embed.colour.value == 0xFF3B30
 
 def test_player_embed():
     embed = player_embed("TestPlayer", True, 7)
