@@ -32,16 +32,21 @@ class WebsiteGroup(app_commands.Group):
             colour=colour,
             timestamp=datetime.now(timezone.utc),
         )
+
         embed.set_footer(
             text="ESNFlux • Website Monitoring"
         )
+
         return embed
 
     @app_commands.command(
         name="status",
         description="Show the current ESN website endpoint status",
     )
-    async def status(self, interaction: discord.Interaction):
+    async def status(
+        self,
+        interaction: discord.Interaction,
+    ):
         monitor = self.bot.website_monitor
         results = list(monitor.results.values())
 
@@ -56,13 +61,16 @@ class WebsiteGroup(app_commands.Group):
             return
 
         available = sum(
-            1 for result in results if result.available
+            1
+            for result in results
+            if result.available
         )
 
         total = len(results)
 
         failed = [
-            result for result in results
+            result
+            for result in results
             if not result.available
         ]
 
@@ -73,6 +81,7 @@ class WebsiteGroup(app_commands.Group):
 
         if failed:
             description += "**Unavailable:**\n"
+
             description += "\n".join(
                 f"• `{result.path}` — "
                 f"{result.error or 'unavailable'}"
@@ -96,7 +105,65 @@ class WebsiteGroup(app_commands.Group):
         name="stats",
         description="Show website uptime and response-time statistics",
     )
-    async def stats(self, interaction: discord.Interaction):
-        overall = await self.bot.database.get_website_overall()
-        r
+    async def stats(
+        self,
+        interaction: discord.Interaction,
+    ):
+        try:
+            overall = (
+                await self.bot.database.get_website_overall()
+            )
+
+            rows = (
+                await self.bot.database.get_website_stats()
+            )
+
+        except Exception as exc:
+            await interaction.response.send_message(
+                embed=self._embed(
+                    "Statistics",
+                    "Unable to load website statistics.\n\n"
+                    f"Error: `{str(exc)[:500]}`",
+                    colour=0xFF4444,
+                ),
+                ephemeral=True,
+            )
+            return
+
+        embed = self._embed(
+            "Statistics",
+            "Long-term website monitoring telemetry.",
+        )
+
+        embed.add_field(
+            name="UPTIME",
+            value=f"`{overall.get('uptime_pct', 0)}%`",
+            inline=True,
+        )
+
+        embed.add_field(
+            name="SAMPLES",
+            value=f"`{overall.get('samples', 0)}`",
+            inline=True,
+        )
+
+        average = overall.get(
+            "average_response_ms"
+        )
+
+        embed.add_field(
+            name="AVG RESPONSE",
+            value=(
+                f"`{average} ms`"
+                if average is not None
+                else "`—`"
+            ),
+            inline=True,
+        )
+
+        maximum = overall.get(
+            "max_response_ms"
+        )
+
+        embed.add_field(
 ```
