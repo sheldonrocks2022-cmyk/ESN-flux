@@ -9,6 +9,7 @@ COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY esnflux ./esnflux
+COPY web ./web
 COPY .env.example ./
 
 RUN mkdir -p /app/data
