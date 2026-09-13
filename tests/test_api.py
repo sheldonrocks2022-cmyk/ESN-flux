@@ -27,8 +27,8 @@ class FakeDatabase:
         }]
 
 
-def make_settings(api_key=""):
-    return type("TestSettings", (), {"api_key": api_key})()
+def make_settings(api_key="", website_url="https://esnoffical.com"):
+    return type("TestSettings", (), {"api_key": api_key, "website_url": website_url})()
 
 
 @pytest.mark.asyncio
@@ -46,6 +46,26 @@ async def test_health_status_and_players_endpoints():
     assert status.json()["players"] == 3
     assert players.json()["count"] == 3
     assert players.json()["players"] == ["Alex", "Sam", "Steve"]
+
+
+@pytest.mark.asyncio
+async def test_tracking_website_is_allowed_by_cors():
+    app = build_api(FakeMonitor(), FakeDatabase(), make_settings())
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.get("/api/smp/status", headers={"Origin": "https://esnoffical.com"})
+
+    assert response.status_code == 200
+    assert response.headers["access-control-allow-origin"] == "https://esnoffical.com"
+
+
+@pytest.mark.asyncio
+async def test_unconfigured_origin_is_not_allowed_by_cors():
+    app = build_api(FakeMonitor(), FakeDatabase(), make_settings())
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.get("/api/smp/status", headers={"Origin": "https://example.com"})
+
+    assert response.status_code == 200
+    assert "access-control-allow-origin" not in response.headers
 
 
 @pytest.mark.asyncio
