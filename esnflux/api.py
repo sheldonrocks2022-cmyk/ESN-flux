@@ -1,11 +1,13 @@
 from fastapi import FastAPI, Header, HTTPException
-from .settings import settings
+from .settings import settings as default_settings
 
-def build_api(monitor, database):
+
+def build_api(monitor, database, config=None):
     app = FastAPI(title="ESNFlux SMP API", version="1.0")
+    config = config or default_settings
 
     def authorize(key):
-        if settings.api_key and key != settings.api_key:
+        if config.api_key and key != config.api_key:
             raise HTTPException(status_code=401, detail="Unauthorized")
 
     @app.get("/api/health")
