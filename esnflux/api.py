@@ -1,10 +1,19 @@
 from fastapi import FastAPI, Header, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 from .settings import settings as default_settings
 
 
 def build_api(monitor, database, config=None):
     app = FastAPI(title="ESNFlux SMP API", version="1.0")
     config = config or default_settings
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=[config.website_url],
+        allow_credentials=False,
+        allow_methods=["GET"],
+        allow_headers=["X-API-Key", "Content-Type"],
+    )
 
     def authorize(key):
         if config.api_key and key != config.api_key:
