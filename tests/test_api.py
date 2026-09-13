@@ -11,6 +11,7 @@ class FakeMonitor:
             "players": 3,
             "latency_ms": 42.5,
             "player_names": ["Alex", "Sam", "Steve"],
+            "player_names_available": True,
             "checked_at": "2026-09-13T00:00:00+00:00",
             "error": None,
         })()
@@ -54,8 +55,10 @@ async def test_health_status_and_players_endpoints():
     assert status.status_code == 200
     assert status.json()["online"] is True
     assert status.json()["players"] == 3
+    assert status.json()["player_names_available"] is True
     assert players.json()["count"] == 3
     assert players.json()["players"] == ["Alex", "Sam", "Steve"]
+    assert players.json()["names_available"] is True
 
 
 @pytest.mark.asyncio
