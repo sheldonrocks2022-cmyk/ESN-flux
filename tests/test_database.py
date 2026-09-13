@@ -23,6 +23,21 @@ async def test_sessions_are_not_duplicated_and_duration_is_recorded(tmp_path):
 
 
 @pytest.mark.asyncio
+async def test_active_sessions_can_be_restored_after_restart(tmp_path):
+    path = str(tmp_path / "flux.db")
+    db = Database(path)
+    await db.connect()
+    await db.open_session("Alex")
+    await db.open_session("Sam")
+    await db.close()
+
+    restarted = Database(path)
+    await restarted.connect()
+    assert await restarted.get_active_sessions() == ["Alex", "Sam"]
+    await restarted.close()
+
+
+@pytest.mark.asyncio
 async def test_incident_once_does_not_duplicate_active_incidents(tmp_path):
     db = Database(str(tmp_path / "flux.db"))
     await db.connect()
