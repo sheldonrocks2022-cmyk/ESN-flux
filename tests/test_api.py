@@ -2,7 +2,6 @@ import pytest
 from httpx import ASGITransport, AsyncClient
 
 from esnflux.api import build_api
-from esnflux.settings import settings
 
 
 class FakeMonitor:
@@ -28,9 +27,13 @@ class FakeDatabase:
         }]
 
 
+def make_settings(api_key=""):
+    return type("TestSettings", (), {"api_key": api_key})()
+
+
 @pytest.mark.asyncio
 async def test_health_status_and_players_endpoints():
-    app = build_api(FakeMonitor(), FakeDatabase())
+    app = build_api(FakeMonitor(), FakeDatabase(), make_settings())
     async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
         health = await client.get("/api/health")
         status = await client.get("/api/smp/status")
@@ -47,18 +50,13 @@ async def test_health_status_and_players_endpoints():
 
 @pytest.mark.asyncio
 async def test_history_requires_api_key_when_configured():
-    old_key = settings.api_key
-    settings.api_key = "secret"
-    try:
-        app = build_api(FakeMonitor(), FakeDatabase())
-        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-            denied = await client.get("/api/smp/history")
-            allowed = await client.get("/api/smp/history", headers={"X-API-Key": "secret"})
+    app = build_api(FakeMonitor(), FakeDatabase(), make_settings("secret"))
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        denied = await client.get("/api/smp/history")
+        allowed = await client.get("/api/smp/history", headers={"X-API-Key": "secret"})
 
-        assert denied.status_code == 401
-        assert allowed.status_code == 200
-    finally:
-        settings.api_key = old_key
+    assert denied.status_code == 401
+    assert allowed.status_code == 200
 
 
 @pytest.mark.asyncio
@@ -72,14 +70,9 @@ async def test_history_limit_is_bounded():
             return []
 
     database = RecordingDatabase()
-    old_key = settings.api_key
-    settings.api_key = ""
-    try:
-        app = build_api(FakeMonitor(), database)
-        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
-            await client.get("/api/smp/history?limit=9999")
-            assert database.last_limit == 500
-            await client.get("/api/smp/history?limit=0")
-            assert database.last_limit == 1
-    finally:
-        settings.api_key = old_key
+    app = build_api(FakeMonitor(), database, make_settings())
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        await client.get("/api/smp/history?limit=9999")
+        assert database.last_limit == 500
+        await client.get("/api/smp/history?limit=0")
+        assert database.last_limit == 1
