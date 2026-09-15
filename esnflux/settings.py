@@ -15,7 +15,8 @@ class Settings:
     website_scan_interval: int = max(300, int(os.getenv("WEBSITE_SCAN_INTERVAL", "3600")))
     database_path: str = os.getenv("DATABASE_PATH", "data/esnflux.db")
     api_host: str = os.getenv("API_HOST", "0.0.0.0")
-    api_port: int = int(os.getenv("API_PORT", "8080"))
+    # Railway injects PORT at runtime. Keep 8080 as the local-development fallback.
+    api_port: int = int(os.getenv("PORT", os.getenv("API_PORT", "8080")))
     api_key: str = os.getenv("API_KEY", "")
     website_url: str = os.getenv("WEBSITE_URL", "https://esnoffical.com").rstrip("/")
     website_log_channel_id: int = int(os.getenv("WEBSITE_LOG_CHANNEL_ID", "0"))
